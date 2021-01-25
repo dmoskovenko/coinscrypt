@@ -11,12 +11,12 @@ data = r.json()
 
 i = 1
 arglen = len(sys.argv)
-escseq = "\033[" + str(arglen - 1) + "A"
+escseq = '\033[' + str(arglen - 1) + 'A'
 
 def findIdByTicker(url, ticker):
 	for arr in data:
 		if arr['symbol'] == ticker:
-			print ('%s %s' %(arr['symbol'], arr['current_price']))
+			print ('%s\t%s\t%s%%' %(arr['symbol'], arr['current_price'],  arr['price_change_percentage_24h']))
 			break;
 
 while i < arglen:
@@ -35,5 +35,4 @@ while i < arglen:
 	else:
 		TICKER = sys.argv[i]
 		findIdByTicker(URL, TICKER)
-		i += 1
- 
+		i += 1 
