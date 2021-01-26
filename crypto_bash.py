@@ -19,11 +19,11 @@ def main():
 					time.sleep(15)
 					i = 1
 				TICKER = sys.argv[i]
-				findIdByTicker(URL, TICKER, data)
+				printing(URL, TICKER, data)
 				i += 1
 		else:
 			TICKER = sys.argv[i]
-			findIdByTicker(URL, TICKER, data)
+			printing(URL, TICKER, data)
 			i += 1 
 
 def parsing():
@@ -31,7 +31,7 @@ def parsing():
 	data = request.json()
 	return data
 
-def findIdByTicker(url, ticker, data):
+def printing(url, ticker, data):
 	for arr in data:
 		if arr['symbol'] == ticker:
 			print ('%s\t%s\t%s%%' %(arr['symbol'], arr['current_price'],  arr['price_change_percentage_24h']))
