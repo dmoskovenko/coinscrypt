@@ -34,7 +34,7 @@ def parsing():
 def printing(url, ticker, data):
 	for arr in data:
 		if arr['symbol'] == ticker:
-			print ('%s\t%s\t%s%%' %(arr['symbol'], arr['current_price'],  arr['price_change_percentage_24h']))
+			print ('%-10s%-10s%s%%' %(arr['symbol'], arr['current_price'],  arr['price_change_percentage_24h']))
 			break;
 
 if __name__ == "__main__":
