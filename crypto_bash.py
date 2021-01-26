@@ -18,20 +18,20 @@ def main():
 					print escseq
 					time.sleep(15)
 					i = 1
-				TICKER = sys.argv[i]
-				printing(URL, TICKER, data)
+				printing(URL, data, i)
 				i += 1
 		else:
-			TICKER = sys.argv[i]
-			printing(URL, TICKER, data)
+			printing(URL, data, i)
 			i += 1 
+
 
 def parsing():
 	request = requests.get(url = URL) 
 	data = request.json()
 	return data
 
-def printing(url, ticker, data):
+def printing(url, data, i):
+	ticker = sys.argv[i]
 	for arr in data:
 		if arr['symbol'] == ticker:
 			print ('%-10s%-10s%s%%' %(arr['symbol'], arr['current_price'],  arr['price_change_percentage_24h']))
