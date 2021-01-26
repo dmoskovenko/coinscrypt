@@ -16,7 +16,7 @@ def main():
 	data = parsing()
 	header = '{:s}{:<12s}{:<12s}{:s}{:s}'.format(GRAY, 'Name', 'Price', '%24h', NC)
 
-	print (header)
+	print header
 	while i < arglen:
 		if sys.argv[i] == '-l':
 			i += 1
@@ -39,6 +39,7 @@ def parsing():
 
 def printCoins(url, data, i):
 	ticker = sys.argv[i]
+
 	for arr in data:
 		if arr['symbol'] == ticker:
 			if arr['price_change_percentage_24h'] > 0:
