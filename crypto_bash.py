@@ -13,9 +13,10 @@ def main():
 	i = 1
 	arglen = len(sys.argv)
 	escseq = '\033[' + str(arglen - 1) + 'A'
-
 	data = parsing()
-	print ('{:s}{:<12s}{:<12s}{:s}{:s}'.format(GRAY, 'Name', 'Price', '%24h', NC))
+	header = '{:s}{:<12s}{:<12s}{:s}{:s}'.format(GRAY, 'Name', 'Price', '%24h', NC)
+
+	print (header)
 	while i < arglen:
 		if sys.argv[i] == '-l':
 			i += 1
@@ -25,10 +26,10 @@ def main():
 					print escseq
 					time.sleep(15)
 					i = 1
-				printing(URL, data, i)
+				printCoins(URL, data, i)
 				i += 1
 		else:
-			printing(URL, data, i)
+			printCoins(URL, data, i)
 			i += 1 
 
 def parsing():
@@ -36,7 +37,7 @@ def parsing():
 	data = request.json()
 	return data
 
-def printing(url, data, i):
+def printCoins(url, data, i):
 	ticker = sys.argv[i]
 	for arr in data:
 		if arr['symbol'] == ticker:
