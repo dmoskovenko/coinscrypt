@@ -1,7 +1,7 @@
 import sys, requests, time
 
 # api-endpoint 
-URL = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false"
+URL = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false&price_change_percentage=7d"
 
 # colored output
 RED='\033[0;31m'
@@ -14,7 +14,7 @@ def main():
 	arglen = len(sys.argv)
 	escseq = '\033[' + str(arglen - 1) + 'A'
 	data = parsing()
-	header = '{:s}{:<12s}{:<12s}{:s}{:s}'.format(GRAY, 'Name', 'Price', '%24h', NC)
+	header = '{:s}{:<7s}{:<7s}{:<10s}{:<10s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '24h', '7d', NC)
 
 	print header
 	while i < arglen:
@@ -42,13 +42,9 @@ def printCoins(url, data, i):
 
 	for arr in data:
 		if arr['symbol'] == ticker:
-			if arr['price_change_percentage_24h'] > 0:
-				color = GREEN
-				sign = "+"
-			else:
-				color = RED
-				sign = ""
-			print ('{:<12s}{:<12s}{:s}{:+.2f}%{:s}'.format(arr['symbol'], str(arr['current_price']), color, arr['price_change_percentage_24h'], NC))
+			hColor = GREEN if arr['price_change_percentage_24h'] > 0 else RED
+			dColor = GREEN if arr['price_change_percentage_7d_in_currency'] > 0 else RED
+			print ('{:<7d}{:<7s}{:<10s}{:s}{:+.2f}%{:s}{:+10.2f}%{:s}'.format(arr['market_cap_rank'], arr['symbol'].upper(), str(arr['current_price']), hColor, arr['price_change_percentage_24h'], dColor, arr['price_change_percentage_7d_in_currency'], NC))
 			break;
 
 if __name__ == "__main__":
