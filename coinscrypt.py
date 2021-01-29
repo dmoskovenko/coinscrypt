@@ -16,7 +16,7 @@ def main():
 	data = parsing()
 	header = '{:s}{:<6s}{:<8s}{:<12s}{:<10s}{:<10s}{:<10s}{:<16s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '1h', '24h', '7d', '24h Volume', 'Market Cap', NC)
 
-	print header
+	print (header)
 	while i < arglen:
 		if sys.argv[i] == '-l':
 			i += 1
