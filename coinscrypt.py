@@ -23,7 +23,7 @@ def main():
 			while 1:
 				if i == arglen:
 					data = parsing()
-					print escseq
+					print (escseq)
 					time.sleep(60)
 					i = 1
 				printCoins(URL, data, i)
