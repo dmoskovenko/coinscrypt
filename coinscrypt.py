@@ -1,7 +1,10 @@
 import sys
 import json
-import urllib
 import time
+if sys.version_info[0] == 3:
+	from urllib.request import urlopen
+else:
+	from urllib import urlopen
 #import requests
 
 # api-endpoint 
@@ -52,9 +55,8 @@ def main():
 			i += 1
 
 def parsing():
-	response = urllib.urlopen(URL)
+	response = urlopen(URL)
 	data = json.loads(response.read())
-	#data = request.json()
 	return data
 
 def print_coins(url, data, i):
