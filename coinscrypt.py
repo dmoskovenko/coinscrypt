@@ -123,8 +123,8 @@ def print_splitter(columns):
 
 def print_coin(element):
 	colors = wich_color(element)
-	print(element['price_change_percentage_1h_in_currency'])
-	print('{:<6d}{:<8s}{:<12s}{:s}{:<+10.2%}{:s}{:<+10.2%}{:s}{:<+10.2%}{:s}{:<17,d}{:,d}'
+	#print(element['price_change_percentage_1h_in_currency'])
+	print('{:<6d}{:<8s}{:<12s}{:s}{:<+10.2%}{:s}{:<+10.2%}{:s}{:<+10.2%}{:s}{:<17,.0f}{:,.0f}'
 		.format(element['market_cap_rank'], element['symbol'].upper(), str(element['current_price']),
 		colors['1h'], (element['price_change_percentage_1h_in_currency']/100), colors['24h'],
 		(element['price_change_percentage_24h']/100), colors['7d'], (element['price_change_percentage_7d_in_currency']/100),
