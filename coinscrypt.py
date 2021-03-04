@@ -26,13 +26,12 @@ def main():
 	tickers = arg_parsing(arg_len)
 	columns = get_screen_size()
 
-	esc_seq = '\033[' + str(arg_len - 1) + 'A'
-
 	if UPDATE_MODE is True:
 		while True:
-			print_controller(url_parsing(), tickers, columns)
-			print(esc_seq)
+			str_count = print_controller(url_parsing(), tickers, columns)
+			print('\033[2A')
 			time.sleep(15)
+			print('\033[' + str(str_count) + 'A')
 	# elif TOP > 0:
 	# 	if (element['market_cap_rank'] is None or element['symbol'] is None or element['current_price'] is None or element['price_change_percentage_1h_in_currency'] is None or element['price_change_percentage_24h'] is None or element['price_change_percentage_7d_in_currency'] is None or element['total_volume'] or element['market_cap'] is None):
 	# 		continue
@@ -76,49 +75,55 @@ def url_parsing():
 def print_controller(data, tickers, columns):
 	top_splitter = False
 	no_option_splitter = False
-	splitter_count = 0
-	header = '{:s}{:<6s}{:<8s}{:<12s}{:<10s}{:<10s}{:<10s}{:<17s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '1h', '24h', '7d', '24h Volume','Market Cap', NC)
-	current_time = get_current_time()
-
+	str_count = 0
+	
 	if tickers:
 		if WRONG_OPTION != '':
-			print_error()
-		splitter_count += print_splitter(columns)
-		print(header)
-		splitter_count += print_splitter(columns)
+			str_count += print_error()
+		str_count += print_splitter(columns)
+		str_count += print_header()
+		str_count += print_splitter(columns)
 		for ticker in tickers:
 			for element in data:
 				if (ticker == '-t') and (TOP > 0):
 					if no_option_splitter is True:
-						splitter_count += print_splitter(columns)
+						str_count += print_splitter(columns)
 						no_option_splitter = False
-					print_coin(element)
+					str_count += print_coin(element)
 					if element['market_cap_rank'] == TOP:
 						top_splitter = True
-						splitter_count += print_splitter(columns)
+						str_count += print_splitter(columns)
 						break
 				else:
 					if top_splitter is True:
 						top_splitter = False
 					if element['symbol'] == ticker:
 						no_option_splitter = True
-						print_coin(element)
+						str_count += print_coin(element)
 	if not top_splitter is True:
-		splitter_count += print_splitter(columns)
-	print('{:s}{:s}{:s}'.format(GRAY, current_time, NC))
-	return print_splitter
-
-def get_current_time():
-	t = time.time()
-	return time.strftime('%d %b %Y %H:%M:%S %Z', time.localtime(t))
+		str_count += print_splitter(columns)
+	str_count += print_current_time()
+	return str_count
 
 def print_error():
 	print('{:s}{:s}'.format('Illegal option ', WRONG_OPTION))
 	print('Usage: coin [-u] [-t num] [ticker]')
+	return 2
 
 def print_splitter(columns):
 	for _ in '_':
 		print('{:s}{:s}{:s}'.format(GRAY, _ * int(columns), NC))
+	return 1
+
+def print_header():
+	header = '{:s}{:<6s}{:<8s}{:<12s}{:<10s}{:<10s}{:<10s}{:<17s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '1h', '24h', '7d', '24h Volume','Market Cap', NC)
+	print(header)
+	return 1
+
+def print_current_time():
+	time_float = time.time()
+	time_str = time.strftime('%d %b %Y %H:%M:%S %Z', time.localtime(time_float))
+	print('{:s}{:s}{:s}'.format(GRAY, time_str, NC))
 	return 1
 
 def print_coin(element):
@@ -129,6 +134,7 @@ def print_coin(element):
 		colors['1h'], (element['price_change_percentage_1h_in_currency']/100), colors['24h'],
 		(element['price_change_percentage_24h']/100), colors['7d'], (element['price_change_percentage_7d_in_currency']/100),
 		NC, element['total_volume'], element['market_cap']))
+	return 1
 
 def wich_color(element):
 	colors = {'1h': NC, '24h': NC, '7d': NC}
