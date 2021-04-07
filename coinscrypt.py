@@ -26,15 +26,12 @@ def main():
 	tickers = arg_parsing(arg_len)
 	columns = get_screen_size()
 
-	if UPDATE_MODE is True:
+	if UPDATE_MODE == True:
 		while True:
 			str_count = print_controller(url_parsing(), tickers, columns)
 			print('\033[2A')
 			time.sleep(15)
 			print('\033[' + str(str_count) + 'A')
-	# elif TOP > 0:
-	# 	if (element['market_cap_rank'] is None or element['symbol'] is None or element['current_price'] is None or element['price_change_percentage_1h_in_currency'] is None or element['price_change_percentage_24h'] is None or element['price_change_percentage_7d_in_currency'] is None or element['total_volume'] or element['market_cap'] is None):
-	# 		continue
 	else:
 		print_controller(url_parsing(), tickers, columns)
 
@@ -58,7 +55,7 @@ def arg_parsing(arg_len):
 					WRONG_OPTION = sys.argv[i]
 			elif WRONG_OPTION == '':
 					WRONG_OPTION = sys.argv[i]
-		elif sys.argv[i].isdigit() is False:
+		elif sys.argv[i].isdigit() == False:
 			tickers.append(sys.argv[i])
 		i += 1
 	return tickers
@@ -86,7 +83,7 @@ def print_controller(data, tickers, columns):
 		for ticker in tickers:
 			for element in data:
 				if (ticker == '-t') and (TOP > 0):
-					if no_option_splitter is True:
+					if no_option_splitter == True:
 						str_count += print_splitter(columns)
 						no_option_splitter = False
 					str_count += print_coin(element)
@@ -95,12 +92,12 @@ def print_controller(data, tickers, columns):
 						str_count += print_splitter(columns)
 						break
 				else:
-					if top_splitter is True:
+					if top_splitter == True:
 						top_splitter = False
 					if element['symbol'] == ticker:
 						no_option_splitter = True
 						str_count += print_coin(element)
-	if not top_splitter is True:
+	if not top_splitter == True:
 		str_count += print_splitter(columns)
 	str_count += print_current_time()
 	return str_count
@@ -128,19 +125,35 @@ def print_current_time():
 
 def print_coin(element):
 	colors = wich_color(element)
-	#print(element['price_change_percentage_1h_in_currency'])
-	print('{:<6d}{:<8s}{:<12s}{:s}{:<+10.2%}{:s}{:<+10.2%}{:s}{:<+10.2%}{:s}{:<17,.0f}{:,.0f}'
+	
+	if element['price_change_percentage_1h_in_currency'] is None:
+		element['price_change_percentage_1h_in_currency'] = 'None'
+	else:
+		element['price_change_percentage_1h_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_1h_in_currency']/100)
+	if element['price_change_percentage_24h'] is None:
+		element['price_change_percentage_24h'] = 'None'
+	else:
+		element['price_change_percentage_24h'] = '{:+.2%}'.format(element['price_change_percentage_24h']/100)
+	if element['price_change_percentage_7d_in_currency'] is None:
+		element['price_change_percentage_7d_in_currency'] = 'None'
+	else:
+		element['price_change_percentage_7d_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_7d_in_currency']/100)
+
+	print('{:<6d}{:<8s}{:<12s}{:s}{:<10s}{:s}{:<10s}{:s}{:<10s}{:s}{:<17,.0f}{:,.0f}'
 		.format(element['market_cap_rank'], element['symbol'].upper(), str(element['current_price']),
-		colors['1h'], (element['price_change_percentage_1h_in_currency']/100), colors['24h'],
-		(element['price_change_percentage_24h']/100), colors['7d'], (element['price_change_percentage_7d_in_currency']/100),
+		colors['1h'], element['price_change_percentage_1h_in_currency'], colors['24h'],
+		element['price_change_percentage_24h'], colors['7d'], element['price_change_percentage_7d_in_currency'],
 		NC, element['total_volume'], element['market_cap']))
 	return 1
 
 def wich_color(element):
 	colors = {'1h': NC, '24h': NC, '7d': NC}
-	colors['1h'] = GREEN if element['price_change_percentage_1h_in_currency'] >= 0 else RED
-	colors['24h'] = GREEN if element['price_change_percentage_24h'] >= 0 else RED
-	colors['7d'] = GREEN if element['price_change_percentage_7d_in_currency'] >= 0 else RED
+	if element['price_change_percentage_1h_in_currency'] is not None:
+		colors['1h'] = GREEN if element['price_change_percentage_1h_in_currency'] >= 0 else RED
+	if element['price_change_percentage_24h'] is not None:
+		colors['24h'] = GREEN if element['price_change_percentage_24h'] >= 0 else RED
+	if element['price_change_percentage_7d_in_currency'] is not None:
+		colors['7d'] = GREEN if element['price_change_percentage_7d_in_currency'] >= 0 else RED
 	return colors
 
 if __name__ == "__main__":
