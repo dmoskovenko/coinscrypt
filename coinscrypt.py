@@ -2,13 +2,14 @@ import sys
 import os
 import time
 import json
+import urllib.error
 if sys.version_info[0] == 3:
 	from urllib.request import urlopen
 else:
 	from urllib import urlopen
 
 # api-endpoint 
-URL = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=1&sparkline=false&price_change_percentage=1h%2C7d"
+URL = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=7d&page=1"
 
 # colors
 RED='\033[0;31m'
@@ -25,7 +26,6 @@ def main():
 	arg_len = len(sys.argv)
 	tickers = arg_parsing(arg_len)
 	columns = get_screen_size()
-
 	if UPDATE_MODE == True:
 		while True:
 			str_count = print_controller(url_parsing(), tickers, columns)
@@ -41,7 +41,6 @@ def arg_parsing(arg_len):
 	global WRONG_OPTION
 	tickers = []
 	i = 1
-
 	while i < arg_len:
 		if sys.argv[i][0] == '-':
 			if len(sys.argv[i]) == 2:
@@ -65,15 +64,26 @@ def get_screen_size():
     return (columns)
 
 def url_parsing():
-	response = urlopen(URL)
-	data = json.loads(response.read())
-	return data
+	for i in range(10):
+		try:
+			response = urlopen(URL)
+			data = json.loads(response.read())
+			return data
+		except urllib.error.URLError as e:
+			if i == 0:
+				print('\033c')
+			print('{:s}{:d}{:s}'.format('Reconnecting(', i + 1, ')'))
+			print('\033[2A')
+			time.sleep(2)
+			continue
+	print('\033c')
+	print ('Connection error')
+	sys.exit()
 
 def print_controller(data, tickers, columns):
 	top_splitter = False
 	no_option_splitter = False
 	str_count = 0
-	
 	if tickers:
 		if WRONG_OPTION != '':
 			str_count += print_error()
@@ -113,7 +123,7 @@ def print_splitter(columns):
 	return 1
 
 def print_header():
-	header = '{:s}{:<6s}{:<8s}{:<12s}{:<10s}{:<10s}{:<10s}{:<17s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '1h', '24h', '7d', '24h Volume','Market Cap', NC)
+	header = '{:s}{:<6s}{:<8s}{:<12s}{:<10s}{:<10s}{:<17s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '24h', '7d', '24h Volume','Market Cap', NC)
 	print(header)
 	return 1
 
@@ -125,11 +135,10 @@ def print_current_time():
 
 def print_coin(element):
 	colors = wich_color(element)
-	
-	if element['price_change_percentage_1h_in_currency'] is None:
-		element['price_change_percentage_1h_in_currency'] = 'None'
-	else:
-		element['price_change_percentage_1h_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_1h_in_currency']/100)
+	# if element['price_change_percentage_1h_in_currency'] is None:
+	# 	element['price_change_percentage_1h_in_currency'] = 'None'
+	# else:
+	# 	element['price_change_percentage_1h_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_1h_in_currency']/100)
 	if element['price_change_percentage_24h'] is None:
 		element['price_change_percentage_24h'] = 'None'
 	else:
@@ -138,18 +147,16 @@ def print_coin(element):
 		element['price_change_percentage_7d_in_currency'] = 'None'
 	else:
 		element['price_change_percentage_7d_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_7d_in_currency']/100)
-
-	print('{:<6d}{:<8s}{:<12s}{:s}{:<10s}{:s}{:<10s}{:s}{:<10s}{:s}{:<17,.0f}{:,.0f}'
+	print('{:<6d}{:<8s}{:<12s}{:s}{:<10s}{:s}{:<10s}{:s}{:<17,.0f}{:,.0f}'
 		.format(element['market_cap_rank'], element['symbol'].upper(), str(element['current_price']),
-		colors['1h'], element['price_change_percentage_1h_in_currency'], colors['24h'],
-		element['price_change_percentage_24h'], colors['7d'], element['price_change_percentage_7d_in_currency'],
+		colors['24h'], element['price_change_percentage_24h'], colors['7d'], element['price_change_percentage_7d_in_currency'],
 		NC, element['total_volume'], element['market_cap']))
 	return 1
 
 def wich_color(element):
-	colors = {'1h': NC, '24h': NC, '7d': NC}
-	if element['price_change_percentage_1h_in_currency'] is not None:
-		colors['1h'] = GREEN if element['price_change_percentage_1h_in_currency'] >= 0 else RED
+	colors = {'24h': NC, '7d': NC}
+	# if element['price_change_percentage_1h_in_currency'] is not None:
+	# 	colors['1h'] = GREEN if element['price_change_percentage_1h_in_currency'] >= 0 else RED
 	if element['price_change_percentage_24h'] is not None:
 		colors['24h'] = GREEN if element['price_change_percentage_24h'] >= 0 else RED
 	if element['price_change_percentage_7d_in_currency'] is not None:
