@@ -1,167 +1,174 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys, time, json, getopt, curses
+
+# Python 2/3 urllib
 import sys
-import os
-import time
-import json
-import urllib.error
 if sys.version_info[0] == 3:
-	from urllib.request import urlopen
+    from urllib.request import urlopen
+    from urllib.error import URLError
 else:
-	from urllib import urlopen
+    from urllib2 import urlopen, URLError
 
-# api-endpoint 
-URL = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&sparkline=false&price_change_percentage=7d&page=1"
+API_URL = (
+    "https://api.coingecko.com/api/v3/coins/markets"
+    "?vs_currency=usd&order=market_cap_desc"
+    "&per_page=100&sparkline=false"
+    "&price_change_percentage=1h%2C24h%2C7d&page=1"
+)
 
-# colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-GRAY='\033[1;30m'
-NC='\033[0m' # No color
+HEADER_LINES = 3
+FOOTER_LINES = 2
+SCROLL_INTERVAL = 30  # seconds
+MIN_COL_WIDTH = 4     # for ellipsis
+GAP = 2               # spaces between columns
 
-# options
-UPDATE_MODE = False
-TOP = 0
-WRONG_OPTION = ''
+
+def parse_args():
+    opts, args = getopt.getopt(sys.argv[1:], 'ut:n', ['update', 'top=', 'name'])
+    update = False; show_name = False; top = 0
+    for o, a in opts:
+        if o in ('-u','--update'): update = True
+        elif o in ('-n','--name'): show_name = True
+        elif o in ('-t','--top') and a.isdigit(): top = int(a)
+    tickers = [a.upper() for a in args]
+    return update, top, show_name, tickers
+
+
+def fetch_data(retries=10, delay=5):
+    for i in range(retries):
+        try:
+            resp = urlopen(API_URL, timeout=5)
+            data = resp.read()
+            if isinstance(data, bytes): data = data.decode()
+            return json.loads(data)
+        except URLError:
+            if i < retries - 1: time.sleep(delay)
+            else: sys.exit("Connection error")
+
+
+def build_records(raw, tickers, top, show_name):
+    recs = []
+    for e in raw:
+        rank = e.get('market_cap_rank')
+        sym = e.get('symbol','').upper()
+        name = e.get('name','')
+        if ((top and rank is not None and rank <= top) or (sym in tickers)):
+            def fmt(p): return '{:+.2%}'.format(p/100) if p is not None else '   N/A   '
+            v1 = e.get('price_change_percentage_1h_in_currency')
+            v24 = e.get('price_change_percentage_24h')
+            v7 = e.get('price_change_percentage_7d_in_currency')
+            rec = [str(rank) if rank is not None else 'N/A', sym]
+            if show_name: rec.append(name)
+            rec += [
+                '{:.2f}'.format(e.get('current_price',0)),
+                fmt(v1), fmt(v24), fmt(v7),
+                '{:,.0f}'.format(e.get('total_volume',0)),
+                '{:,.0f}'.format(e.get('market_cap',0))
+            ]
+            raw_vals = {'1h':v1,'24h':v24,'7d':v7}
+            recs.append((rec, raw_vals))
+    return recs
+
+
+def curses_main(stdscr, update, top, show_name, tickers):
+    # init colors
+    curses.start_color(); curses.use_default_colors()
+    curses.init_pair(1, curses.COLOR_RED,-1)
+    curses.init_pair(2, curses.COLOR_GREEN,-1)
+    curses.init_pair(3, curses.COLOR_WHITE,-1)
+    col_red = curses.color_pair(1)
+    col_grn = curses.color_pair(2)
+    col_gray = curses.color_pair(3)|curses.A_DIM
+    col_norm = curses.A_NORMAL
+
+    curses.curs_set(0); stdscr.keypad(True); stdscr.timeout(100)
+
+    records=[]; last_fetch=0; v_off=0; h_off=0
+    while True:
+        h,w=stdscr.getmaxyx(); now=time.time()
+        if not records or (update and now-last_fetch>=SCROLL_INTERVAL):
+            raw=fetch_data(); records=build_records(raw,tickers,top,show_name)
+            last_fetch=now; v_off=0; h_off=0
+
+        # prepare columns
+        cols=['Rank','Ticker']
+        if show_name: cols.append('Name')
+        cols+=['Price','1h','24h','7d','Vol24h','MktCap']
+        col_count=len(cols)
+        # compute max content widths
+        max_w=[len(c) for c in cols]
+        for rec,_ in records:
+            for i,cell in enumerate(rec):
+                L=len(str(cell)); max_w[i]=max(max_w[i],L)
+        # total required width including gaps
+        total_req=sum(max_w)+GAP*(col_count-1)
+        ell_idx=None
+        if total_req> w:
+            diff=total_req-w
+            # find widest column to shrink
+            idx=max(range(col_count), key=lambda i:max_w[i])
+            neww=max(MIN_COL_WIDTH, max_w[idx]-diff)
+            if neww<max_w[idx]: max_w[idx]=neww; ell_idx=idx
+            total_req=sum(max_w)+GAP*(col_count-1)
+        # separator line full width
+        sep_full='─'*w
+        stdscr.erase()
+        # draw header sep
+        stdscr.addstr(0,0,sep_full,col_gray)
+        # header titles
+        x=0
+        for i,title in enumerate(cols):
+            wcol=max_w[i]; text=title.ljust(wcol)
+            if x-h_off< w and x+wcol-h_off>0:
+                sub=text[max(0,h_off-x):][:min(wcol,w,x+wcol-h_off)]
+                try: stdscr.addstr(1,max(0,x-h_off),sub,col_gray)
+                except: pass
+            x+=wcol+GAP
+        # underline
+        stdscr.addstr(2,0,sep_full,col_gray)
+
+        # body rows
+        view_h=max(0,h-HEADER_LINES-FOOTER_LINES)
+        max_v_off=max(0,len(records)-view_h)
+        for r in range(view_h):
+            if v_off+r>=len(records): break
+            rec,rawv=records[v_off+r]; y=HEADER_LINES+r; x=0
+            for i,cell in enumerate(rec):
+                wcol=max_w[i]; s=str(cell)
+                if ell_idx==i and len(s)>wcol: s=s[:wcol-3]+'...'
+                else: s=s.ljust(wcol)
+                if x-h_off< w and x+wcol-h_off>0:
+                    sub=s[max(0,h_off-x):][:min(wcol,w,x+wcol-h_off)]
+                    if cols[i] in ('1h','24h','7d'):
+                        rv=rawv[cols[i]]; attr=col_grn if rv and rv>=0 else col_red if rv else col_norm
+                    else: attr=col_norm
+                    try: stdscr.addstr(y,max(0,x-h_off),sub,attr)
+                    except: pass
+                x+=wcol+GAP
+        # footer sep
+        row_s=HEADER_LINES+view_h; row_f=row_s+1
+        if row_s<h: stdscr.addstr(row_s,0,sep_full,col_gray)
+        # footer time
+        if row_f<h:
+            ft='Updated: '+time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(last_fetch))
+            stdscr.addstr(row_f,0,ft[:w],col_gray)
+        stdscr.refresh()
+
+        # input handling
+        key=stdscr.getch()
+        if key in (ord('q'),ord('Q')): break
+        if key in (curses.KEY_DOWN,ord('j')) and v_off<max_v_off: v_off+=1
+        if key in (curses.KEY_UP,ord('k')) and v_off>0: v_off-=1
+        if key in (curses.KEY_RIGHT,ord('l')) and h_off<max(0,total_req-w): h_off+=1
+        if key in (curses.KEY_LEFT,ord('h')) and h_off>0: h_off-=1
+        if key == curses.KEY_RESIZE:
+            # on resize, just redraw without refetching data
+            continue
+
 
 def main():
-	arg_len = len(sys.argv)
-	tickers = arg_parsing(arg_len)
-	columns = get_screen_size()
-	if UPDATE_MODE == True:
-		while True:
-			str_count = print_controller(url_parsing(), tickers, columns)
-			print('\033[2A')
-			time.sleep(15)
-			print('\033[' + str(str_count) + 'A')
-	else:
-		print_controller(url_parsing(), tickers, columns)
+    update,top,show_name,tickers=parse_args()
+    curses.wrapper(curses_main,update,top,show_name,tickers)
 
-def arg_parsing(arg_len):
-	global UPDATE_MODE
-	global TOP
-	global WRONG_OPTION
-	tickers = []
-	i = 1
-	while i < arg_len:
-		if sys.argv[i][0] == '-':
-			if len(sys.argv[i]) == 2:
-				if sys.argv[i][1] == 'u':
-					UPDATE_MODE = True
-				elif sys.argv[i][1] == 't':
-					if sys.argv[i + 1].isdigit():
-						tickers.append(sys.argv[i])
-						TOP = int(sys.argv[i + 1])
-				elif WRONG_OPTION == '':
-					WRONG_OPTION = sys.argv[i]
-			elif WRONG_OPTION == '':
-					WRONG_OPTION = sys.argv[i]
-		elif sys.argv[i].isdigit() == False:
-			tickers.append(sys.argv[i])
-		i += 1
-	return tickers
-
-def get_screen_size():
-    rows, columns = os.popen('stty size', 'r').read().split()
-    return (columns)
-
-def url_parsing():
-	for i in range(10):
-		try:
-			response = urlopen(URL)
-			data = json.loads(response.read())
-			return data
-		except urllib.error.URLError as e:
-			if i == 0:
-				print('\033c')
-			print('{:s}{:d}{:s}'.format('Reconnecting(', i + 1, ')'))
-			print('\033[2A')
-			time.sleep(2)
-			continue
-	print('\033c')
-	print ('Connection error')
-	sys.exit()
-
-def print_controller(data, tickers, columns):
-	top_splitter = False
-	no_option_splitter = False
-	str_count = 0
-	if tickers:
-		if WRONG_OPTION != '':
-			str_count += print_error()
-		str_count += print_splitter(columns)
-		str_count += print_header()
-		str_count += print_splitter(columns)
-		for ticker in tickers:
-			for element in data:
-				if (ticker == '-t') and (TOP > 0):
-					if no_option_splitter == True:
-						str_count += print_splitter(columns)
-						no_option_splitter = False
-					str_count += print_coin(element)
-					if element['market_cap_rank'] == TOP:
-						top_splitter = True
-						str_count += print_splitter(columns)
-						break
-				else:
-					if top_splitter == True:
-						top_splitter = False
-					if element['symbol'] == ticker:
-						no_option_splitter = True
-						str_count += print_coin(element)
-	if not top_splitter == True:
-		str_count += print_splitter(columns)
-	str_count += print_current_time()
-	return str_count
-
-def print_error():
-	print('{:s}{:s}'.format('Illegal option ', WRONG_OPTION))
-	print('Usage: coin [-u] [-t num] [ticker]')
-	return 2
-
-def print_splitter(columns):
-	for _ in '_':
-		print('{:s}{:s}{:s}'.format(GRAY, _ * int(columns), NC))
-	return 1
-
-def print_header():
-	header = '{:s}{:<6s}{:<8s}{:<12s}{:<10s}{:<10s}{:<17s}{:s}{:s}'.format(GRAY, 'Rank', 'Ticker', 'Price', '24h', '7d', '24h Volume','Market Cap', NC)
-	print(header)
-	return 1
-
-def print_current_time():
-	time_float = time.time()
-	time_str = time.strftime('%d %b %Y %H:%M:%S %Z', time.localtime(time_float))
-	print('{:s}{:s}{:s}'.format(GRAY, time_str, NC))
-	return 1
-
-def print_coin(element):
-	colors = wich_color(element)
-	# if element['price_change_percentage_1h_in_currency'] is None:
-	# 	element['price_change_percentage_1h_in_currency'] = 'None'
-	# else:
-	# 	element['price_change_percentage_1h_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_1h_in_currency']/100)
-	if element['price_change_percentage_24h'] is None:
-		element['price_change_percentage_24h'] = 'None'
-	else:
-		element['price_change_percentage_24h'] = '{:+.2%}'.format(element['price_change_percentage_24h']/100)
-	if element['price_change_percentage_7d_in_currency'] is None:
-		element['price_change_percentage_7d_in_currency'] = 'None'
-	else:
-		element['price_change_percentage_7d_in_currency'] = '{:+.2%}'.format(element['price_change_percentage_7d_in_currency']/100)
-	print('{:<6d}{:<8s}{:<12s}{:s}{:<10s}{:s}{:<10s}{:s}{:<17,.0f}{:,.0f}'
-		.format(element['market_cap_rank'], element['symbol'].upper(), str(element['current_price']),
-		colors['24h'], element['price_change_percentage_24h'], colors['7d'], element['price_change_percentage_7d_in_currency'],
-		NC, element['total_volume'], element['market_cap']))
-	return 1
-
-def wich_color(element):
-	colors = {'24h': NC, '7d': NC}
-	# if element['price_change_percentage_1h_in_currency'] is not None:
-	# 	colors['1h'] = GREEN if element['price_change_percentage_1h_in_currency'] >= 0 else RED
-	if element['price_change_percentage_24h'] is not None:
-		colors['24h'] = GREEN if element['price_change_percentage_24h'] >= 0 else RED
-	if element['price_change_percentage_7d_in_currency'] is not None:
-		colors['7d'] = GREEN if element['price_change_percentage_7d_in_currency'] >= 0 else RED
-	return colors
-
-if __name__ == "__main__":
-    main()
+if __name__=='__main__': main()
